@@ -1,7 +1,9 @@
 #import your shit
 from selenium import webdriver  #the all-important webdriver module
 from bs4 import BeautifulSoup #nice little HTML parser; don't use regex
-import os, csv #I like these things
+import sys, csv #I like these things
+from os.path import *
+import os
 
 #added functionality for webdriver
 from selenium.webdriver.common.keys import Keys
@@ -9,85 +11,84 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-#desktop = u'C:\\Users\\ganstrei\\Desktop'
-desktop = u'/Users/ericamoszkowski/Documents/NYU/SocialNetworks/EconIdeaNetwork/save/'
 
-os.chdir(desktop) #or wherever you want the CSV file stored
-
-#I don't think you have to do this if you install chromedriver with brew, but 
-#I'm programming on a windows machine, which sucks.
-# path_to_chromedriver = u'C:\\Users\\ganstrei\\Desktop\\chromedriver.exe'
-#path_to_chromedriver = u'/Users/ericamoszkowski/Library/chromedriver.exe'
+dir = normpath(join(dirname(realpath(__file__)), "..", "save"))
+os.chdir(dir) #or wherever you want the CSV file stored
 
 #name our csv file and open it
 aea_csv_file = "AEA_Paper_Info.csv"
 
 with open(aea_csv_file, 'wb') as csvfile:
-	#initialize our CSV writer and write our first row
-	spamwriter = csv.writer(csvfile)
 
-	spamwriter.writerow(["Paper Name", "Paper Author", "Paper Key Words", "Issue Date"])
+    #initialize our CSV writer and write our first row
+    spamwriter = csv.writer(csvfile)
+    spamwriter.writerow(["Paper Name", "Paper Author", "Paper Key Words", "Issue Date"])
 
-	#start our driver
-	#driver = webdriver.Chrome(executable_path = path_to_chromedriver)
-	driver = webdriver.Chrome()
+    driver = webdriver.Chrome()
+    driver.get('https://www.aeaweb.org/aer/issues.php')
 
-	#navigate to where we'll start.
-	driver.get('https://www.aeaweb.org/aer/issues.php')
+    # wait to make sure that the element is clickable -- selenium can be hasty sometime
+    element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CLASS_NAME, "main-content")))
 
-	#inspect march 2016 element and copy its xpath.
-	#should be intuitive to you regarding how you could iterate over xpaths
+    #extract all the dates 
+    issues = driver.find_elements_by_xpath('/html/body/main/div/section/section/article[*]/div[1]/a')
+    dates  = [issues[i].text for i in range(len(issues))]
 
-	#wait to make sure that the element is clickable -- selenium can be hasty sometime
-	element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="mainContent3"]/p[2]/a[1]')))
+    # click on each date
+    for i in range(1,len(issues)+1):
+        
+        # have to do this again because references get stale
+        issue = driver.find_element_by_xpath('/html/body/main/div/section/section/article[' + str(i) + ']/div[1]/a')
+        issue.click()
+        
+        # iterate over all the articles and yank their info
+        papers = driver.find_elements_by_xpath('/html/body/main/div/section/section[3]/article[*]')
+        for p in range(2,len(papers)+1): 
+            print p
+            details = []  #something we'll fill up later                     
+            paper_xpath = '/html/body/main/div/section/section[3]/article[' + str(p) + ']/h3/a'
+            
+            try:
+                element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, paper_xpath)))
+            except:
+                break
+            
+            #click the paper link
+            driver.find_element_by_xpath(paper_xpath).click()
+        
+            #yank the elements we're intersted in
+            title = driver.find_element_by_xpath('/html/body/main/div/section/h1').text
+            author = driver.find_element_by_xpath('/html/body/main/div/section/ul/li').text
+            try: 
+                keywords = driver.find_element_by_xpath('//*[@id="article-information"]/section[4]/ul').text
+            except:
+                keywords = driver.find_element_by_xpath('//*[@id="article-information"]/section[3]/ul').text
 
-	#extract date you're working with
-	date = driver.find_element_by_xpath('//*[@id="mainContent3"]/p[2]/a[1]').text
 
+            date = dates[i - 1]
 
-	#find the element with the xpath and click it
-	driver.find_element_by_xpath('//*[@id="mainContent3"]/p[2]/a[1]').click()
+            #remove any ascii shit that comes up
+            title = title.encode('ascii', 'ignore')
+            author = author.encode('ascii', 'ignore')
+            keywords = keywords.encode('ascii', 'ignore')
+            date = date.encode('ascii', 'ignore')
 
-	#now you're on the page that has all the papers published in this issue; we have to iterate over clicking them and yanking their content
+            #add this to details array; write array to csv file
+            details.append(title)
+            details.append(author)
+            details.append(keywords)
+            details.append(date)
+        
+            spamwriter.writerow(details)
 
+            # return to issue page
+            driver.back()
+            
+        # return to issues listing
+        driver.back()
 
-	for i in range (7, 15):
-		details = []  #something we'll fill up later
-
-		#example of xpath iteration
-		paper_xpath = '//*[@id="mainContent3"]/div[' + str(i) + ']/div/a'
-
-		try:
-			element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, paper_xpath)))
-		except:
-			break
-
-		#click the paper link
-		driver.find_element_by_xpath(paper_xpath).click()
-
-		#yank the elements we're intersted in
-
-		title = driver.find_element_by_xpath('//*[@id="dialog_h2"]').text
-		author = driver.find_element_by_xpath('//*[@id="resize_window"]/div[9]').text
-		keywords = driver.find_element_by_xpath('//*[@id="resize_window"]/div[11]').text
-
-		#remove any ascii shit that comes up
-		title = title.encode('ascii', 'ignore')
-		author = author.encode('ascii', 'ignore')
-		keywords = keywords.encode('ascii', 'ignore')
-
-		#add this to details array; write array to csv file
-		details.append(title)
-		details.append(author)
-		details.append(keywords)
-		details.append(date)
-
-		spamwriter.writerow(details)
-
-		driver.back()
-
-	driver.quit()
-
-	csvfile.close()
-
+driver.quit()
+csvfile.close()
+			
 print "all done!"
+
