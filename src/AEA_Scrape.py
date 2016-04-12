@@ -45,7 +45,12 @@ with open(aea_csv_file, 'wb') as csvfile:
         # click on each issue
         for currDate in range(1,nDates+1):
 
+            # Load Date String
             datestr = dates[currDate - 1]
+            
+            # Skip if May edition (historically, the P&P issue)
+            if 'May' in datestr:
+                continue
 
             # have to do this again because references get stale
             # if no currDateth issue, move to next Volume
@@ -68,35 +73,42 @@ with open(aea_csv_file, 'wb') as csvfile:
                     element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, paper_xpath)))
                     driver.find_element_by_xpath(paper_xpath).click()
                 except:
-                    break
+                    continue
 
-                # Grab Title
-                title = driver.find_element_by_xpath('/html/body/main/div/section/h1').text
+                try:
 
-                # Grab Author(s)
-                authors = driver.find_elements_by_xpath('/html/body/main/div/section/ul/li[contains(@class,"author")]')
-                authors = ';'.join([a.text for a in authors])
+                    # Grab Title
+                    title = driver.find_element_by_xpath('/html/body/main/div/section/h1').text
 
-                # Grab JEL Classification(s)
-                keywords = driver.find_element_by_xpath('//*[@id="article-information"]/section[contains(@class,"jel-classification")]/ul').text
-                keywords = keywords.replace('\n',';')
+                    # Grab Author(s)
+                    authors = driver.find_elements_by_xpath('/html/body/main/div/section/ul/li[contains(@class,"author")]')
+                    authors = ';'.join([a.text for a in authors])
 
-                #remove any ascii shit that comes up
-                title = title.encode('ascii', 'ignore')
-                authors = authors.encode('ascii', 'ignore')
-                keywords = keywords.encode('ascii', 'ignore')
-                datestr = datestr.encode('ascii', 'ignore')
+                    # Grab JEL Classification(s)
+                    keywords = driver.find_element_by_xpath('//*[@id="article-information"]/section[contains(@class,"jel-classification")]/ul').text
+                    keywords = keywords.replace('\n',';')
 
-                #add this to details array; write array to csv file
-                details.append(title)
-                details.append(authors)
-                details.append(keywords)
-                details.append(datestr)
+                    #remove any ascii shit that comes up
+                    title = title.encode('ascii', 'ignore')
+                    authors = authors.encode('ascii', 'ignore')
+                    keywords = keywords.encode('ascii', 'ignore')
+                    datestr = datestr.encode('ascii', 'ignore')
 
-                spamwriter.writerow(details)
+                    #add this to details array; write array to csv file
+                    details.append(title)
+                    details.append(authors)
+                    details.append(keywords)
+                    details.append(datestr)
 
-                # return to issue page
-                driver.back()
+                    spamwriter.writerow(details)
+                    driver.back()
+
+                except:
+                    # Grabbing Title, Author, or JEL Codes failed
+
+                    # return to issue page
+                    driver.back()
+                    continue
 
             # return to issues listing
             driver.back()
