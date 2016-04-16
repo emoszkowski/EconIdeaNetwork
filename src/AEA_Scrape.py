@@ -34,7 +34,8 @@ with open(aea_csv_file, 'wb') as csvfile:
     nVolumes = len(volumes)
 
     # click on each volume
-    for currVolume in range(1,nVolumes+1):
+    # start w/ 6 b/c others are downloaded
+    for currVolume in range(6,nVolumes+1):
 
         # get list of dates
         dates = driver.find_elements_by_xpath('/html/body/main/div/section/section/article[' + \
@@ -61,7 +62,7 @@ with open(aea_csv_file, 'wb') as csvfile:
             issue.click()
             
             # iterate over all the articles and yank their info
-            papers = driver.find_elements_by_xpath('/html/body/main/div/section/section[3]/article[*]')
+            papers = driver.find_elements_by_xpath('/html/body/main/div/section/section[contains(@class,"journal-article-group")]/article[*]')
             for p in range(2,len(papers)+1): 
 
                 print str(currVolume) + '\t' + str(currDate) + '\t' + str(p) + '\n'
