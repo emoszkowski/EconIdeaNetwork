@@ -34,8 +34,7 @@ with open(aea_csv_file, 'wb') as csvfile:
     nVolumes = len(volumes)
 
     # click on each volume
-    # start w/ 6 b/c others are downloaded
-    for currVolume in range(6,nVolumes+1):
+    for currVolume in range(0,nVolumes):
 
         # get list of dates
         dates = driver.find_elements_by_xpath('/html/body/main/div/section/section/article[' + \
@@ -69,7 +68,7 @@ with open(aea_csv_file, 'wb') as csvfile:
                 details = []  #something we'll fill up later                     
 
                 # Click on Paper Link
-                paper_xpath = '/html/body/main/div/section/section[3]/article[' + str(p) + ']/h3/a'
+                paper_xpath = '/html/body/main/div/section/section[contains(@class,"journal-article-group")]/article[' + str(p) + ']/h3/a'
                 try:
                     element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, paper_xpath)))
                     driver.find_element_by_xpath(paper_xpath).click()
