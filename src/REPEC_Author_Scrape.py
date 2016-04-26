@@ -30,6 +30,7 @@ element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "mai
 # Get list of departments
 departments = driver.find_elements_by_xpath('//*[@id="main"]/dl/dd[*]/ul/li/a')
 nDepartments = len(departments)
+nDepartments = 4;
 
 dfs = []
 sectionStr = u'People who have registered with RePEc and have claimed to be affiliated with this institution:'
@@ -44,15 +45,25 @@ for currDep in range(1, nDepartments+1):
     deplink = driver.find_element_by_xpath('//*[@id="main"]/dl/dd[' + str(currDep) + ']/ul/li/a')
     deplink.click()
 
-    element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "main")))
+    element = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.ID, "main")))
 
     # Get authors in the department
     links = driver.find_elements_by_xpath('//*[@id="main"]/h3[*]')
     sections = [link.text for link in links]
 
     if not sections:
+        deplink = driver.find_element_by_xpath('//*[@id="main"]/dl/dd[' + str(currDep) + ']/ul/li/a')
+        deplink.click()
+        
+        element = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.ID, "main")))
+
+        # Get authors in the department
+        links = driver.find_elements_by_xpath('//*[@id="main"]/h3[*]')
+        sections = [link.text for link in links]
+ 
+    if not sections:
         continue
-    
+
     authorListInd = sections.index(sectionStr) + 2
 
     authors = driver.find_elements_by_xpath('//*[@id="main"]/ol[' + str(authorListInd) + ']/li[*]') 
@@ -75,6 +86,7 @@ for currDep in range(1, nDepartments+1):
     
     # go back to the page with all the departments
     driver.back()
+    element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "main")))
 
 dfs = pd.concat(dfs)
 
