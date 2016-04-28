@@ -21,9 +21,10 @@ nber.authors = nber.authors.apply(lambda x: x.replace(' Jr.',''))
 nber.authors = nber.authors.apply(lambda x: x.replace(' Jr',''))
 
 # Separate List of Authors
-authorLists = nber.authors.apply(lambda x: x.split(','))
+authorLists = nber.authors.apply(lambda x: map(lambda x: x.strip(), x.split(',')))
 maxLength = max(authorLists.apply(lambda x: len(x)))
 
+# Index into Variable, but return NaN if out of bounds
 def safeindex(x, i):
     try:
         return x[i]
