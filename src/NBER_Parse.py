@@ -77,7 +77,68 @@ nberEdges = list(nberCartJEL.value_x + '|' + nberCartJEL.value_y + '|' + nberCar
 
 G = nx.parse_edgelist(nberEdges, delimiter='|', data=(('jelcode',str),))
 
-# Add Department Attribute (WIP)
+# TODO: Add Department Attribute (WIP)
+
+#############################
+# Degree Distribution       # 
+#############################
+degree_dist = nx.degree_histogram(G)
+
+#######################################
+# Calculate distribution of JEL codes #
+# for each author                     #
+#######################################
+
+# how many unique JEL codes are there?
+jelList = ','.join(list(nberCartJEL.jel))
+jelList = jelList.split(',')
+jelSet = set(jelList)
+
+# make a JEL lookup table
+jelLookup = dict()
+for i, jel in enumerate(jelSet):
+    jelLookup[jel] = i
+
+# make an array of authors x JELs to keep counts
+authors = nx.nodes(G) 
+authorCodes = np.zeros((len(authors), len(jelSet)))
+for a in range(len(authors)):
+    papers = G.edges(authors[a])
+    for p in papers:
+        paperAttrs = G.get_edge_data(p[0], p[1])
+        paperJels  = paperAttrs['jelcode'].split(',')
+        jelInds = [jelLookup[jel] for jel in paperJels]
+        authorCodes[a, jelInds] += 1
+
+
+#####################
+# Compute PageRank  # 
+#####################
+
+ranks = nx.pagerank(G)
+
+# add to graph
+nx.set_node_attributes(G, 'rank', ranks)
+
+# in case we want to look at the top authors
+sortedRanks = sorted(ranks.items(), key=lambda x: x[1])
+
+
+########################
+# Feature matrix       #
+########################
+
+# Extract PageRank to a vector
+nodeRanks = np.empty(len(authors))
+for i in range(len(authors)):
+    nodeRanks[i] = ranks.get(authors[i])
+nodeRanks = np.reshape(nodeRanks, (len(nodeRanks),1))
+
+# Make a dataFrame
+data = np.hstack((nodeRanks,authorCodes))
+df = pd.DataFrame(data)
+df.columns = ['rank'] + [jel for jel in jelSet]
+df['author'] = authors
 
 #################
 # Write to File #
