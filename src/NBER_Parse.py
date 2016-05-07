@@ -7,7 +7,7 @@ import nltk.metrics as nm
 # Read file from pipe-delimited file #
 ######################################
 
-filepath = '../save/NBER_Paper_Info.1.csv'
+filepath = '../save/NBER_Paper_Info.csv'
 nber = pd.read_csv(filepath, delimiter='|')
 
 ####################
