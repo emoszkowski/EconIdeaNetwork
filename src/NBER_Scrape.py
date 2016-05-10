@@ -12,6 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 import pandas as pd
+import numpy as np
 
 dir = normpath(join(dirname(realpath('')), ".", "save"))
 os.chdir(dir) #or wherever you want the CSV file stored
@@ -54,17 +55,21 @@ for currCode in range(1, nCodes+1):
         driver.get('http://nber.org/jel/' + classCode + '.html')
 
         papers = driver.find_elements_by_xpath('//*[@id="mainContentTd"]/table/tbody/tr[*]')
-        papers = [p.text for p in papers if p.text[0] == 'w']
-        papersSplit = [p.split(' ',1)[1].split('\n') for p in papers]
 
-        authors = [p[0:-1] for p in papersSplit]
-        titles = [p[-1] for p in papersSplit]
+        papersDf = pd.DataFrame([p.text for p in papers])
+        papersDf['year'] = papersDf[0]
+        papersDf.year[papersDf.year.apply(lambda x: x[0]) == 'w'] = np.nan
+        papersDf.year = papersDf.year.ffill()
+        papersDf = papersDf[papersDf[0].apply(lambda x: x[0]) == 'w']
 
-        df = pd.DataFrame([titles, authors]).transpose()
-        df.columns = ['title','authors']
-        df['jel'] = classCode
+        papersDf[0] = papersDf[0].apply(lambda x: x.split(' ',1)[1].split('\n'))
+        papersDf['authors'] = papersDf[0].apply(lambda x: x[0:-1])
+        papersDf['title'] = papersDf[0].apply(lambda x: x[-1])
 
-        dfs.append(df)
+        papersDf['jel'] = classCode
+        del papersDf[0]
+
+        dfs.append(papersDf)
         driver.back()
         
     driver.back()
@@ -74,7 +79,8 @@ dfs = pd.concat(dfs)
 # Collapse Duplicates
 
 jels = dfs.groupby('title').jel.unique().reset_index()
-authors = dfs.groupby('title').authors.first().reset_index()
+authors = dfs.groupby('title').first().reset_index()
+del authors['jel']
 
 dfsFinal = pd.merge(authors, jels, how='outer', on='title')
 
@@ -86,6 +92,7 @@ dfsFinal.jel = dfsFinal.jel.apply(lambda x: ', '.join(x))
 dfsFinal.title = dfsFinal.title.apply(lambda x: x.encode('ascii','ignore'))
 dfsFinal.authors = dfsFinal.authors.apply(lambda x: x.encode('ascii','ignore'))
 dfsFinal.jel = dfsFinal.jel.apply(lambda x: x.encode('ascii','ignore'))
+dfsFinal.year = dfsFinal.year.apply(lambda x: x.encode('ascii','ignore'))
 
 # Write to File
 dfsFinal.to_csv(nber_csv_file, sep='|')
