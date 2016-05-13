@@ -14,10 +14,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import numpy as np
 
-dir = normpath(join(dirname(realpath('')), ".", "save"))
-os.chdir(dir) #or wherever you want the CSV file stored
+def _match(x):
+    return (x[0] == 'w') or (x[0] == 't')
 
 #name our csv file and open it
+path = '../save/'
 nber_csv_file = "NBER_Paper_Info.csv"
 
 # set up driver
@@ -48,24 +49,32 @@ for currCode in range(1, nCodes+1):
     for currMinorClass in range(1, nMinorClasses+1):
 
         print minorClasses[currMinorClass-1]
-        
+
+        # Go to page with papers for a single minor JEL class
         classlink = driver.find_element_by_xpath('//*[@id="mainContentTd"]/ul/li[' + str(currMinorClass) + ']')
         classCode = classlink.text.split(' ')[0][1:-1]
         
         driver.get('http://nber.org/jel/' + classCode + '.html')
 
+        # Get List of Papers
         papers = driver.find_elements_by_xpath('//*[@id="mainContentTd"]/table/tbody/tr[*]')
 
+        # format papers + years
         papersDf = pd.DataFrame([p.text for p in papers])
-        papersDf['year'] = papersDf[0]
-        papersDf.year[papersDf.year.apply(lambda x: x[0]) == 'w'] = np.nan
-        papersDf.year = papersDf.year.ffill()
-        papersDf = papersDf[papersDf[0].apply(lambda x: x[0]) == 'w']
 
+        # Extract years and fill forward to assign
+        # year to each paper
+        papersDf['year'] = papersDf[0]
+        papersDf.year[papersDf.year.apply(_match)] = np.nan
+        papersDf.year = papersDf.year.ffill()
+        papersDf = papersDf[papersDf[0].apply(_match)]
+
+        # Split text into authors & titles
         papersDf[0] = papersDf[0].apply(lambda x: x.split(' ',1)[1].split('\n'))
         papersDf['authors'] = papersDf[0].apply(lambda x: x[0:-1])
         papersDf['title'] = papersDf[0].apply(lambda x: x[-1])
 
+        # Add in JEL codes and cleanup
         papersDf['jel'] = classCode
         del papersDf[0]
 
@@ -73,10 +82,11 @@ for currCode in range(1, nCodes+1):
         driver.back()
         
     driver.back()
-
+ 
 dfs = pd.concat(dfs)
 
-# Collapse Duplicates
+# Collapse Duplicates into single entry
+# with all JEL codes
 
 jels = dfs.groupby('title').jel.unique().reset_index()
 authors = dfs.groupby('title').first().reset_index()
@@ -95,4 +105,4 @@ dfsFinal.jel = dfsFinal.jel.apply(lambda x: x.encode('ascii','ignore'))
 dfsFinal.year = dfsFinal.year.apply(lambda x: x.encode('ascii','ignore'))
 
 # Write to File
-dfsFinal.to_csv(nber_csv_file, sep='|')
+dfsFinal.to_csv(path + nber_csv_file, sep='|')
