@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 def _match(x):
-    return (x[0] == 'w') or (x[0] == 't')
+    return x[0].isalpha()
 
 #name our csv file and open it
 path = '../save/'
