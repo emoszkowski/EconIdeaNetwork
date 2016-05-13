@@ -3,6 +3,13 @@ import networkx as nx
 import numpy as np
 import nltk.metrics as nm
 
+####################################
+# Parse Downloaded NBER CSV data   #
+# into GRAPHML objects             #
+# with edges as collaborations     #
+# and correct year/JEL code labels #
+####################################
+
 ######################################
 # Read file from pipe-delimited file #
 ######################################
@@ -44,13 +51,14 @@ nberLong = pd.melt(nber[cols], id_vars=['title'])
 nberLong = nberLong[~pd.isnull(nberLong.value)][['title','value']]
 
 # Drop middle names and punctuation 
-# b/c they throw off
+# b/c they throw off our merge
 def dropMiddle(x):
     xSplit = x.strip().split(' ')
     if len(xSplit) < 3:
         return ''.join(xSplit)
     else:
         return ''.join([xSplit[0],xSplit[-1]])
+
 nberLong.value = nberLong.value.apply(dropMiddle)
 nberLong.value = nberLong.value.apply(lambda x: x.replace('.',''))
 
@@ -62,22 +70,44 @@ nberLong.value = nberLong.value.apply(lambda x: x.replace('.',''))
 nberCart = pd.merge(nberLong, nberLong, how='outer', on='title')
 nberCart = nberCart[nberCart.value_x != nberCart.value_y]
 
-#######################################
-# Add JEL Codes to Coauthorship Edges #
-#######################################
+#################################################
+# Add JEL Codes and Years to Coauthorship Edges #
+#################################################
 
-nberCartJEL = pd.merge(nberCart, nber[['title','jel']], how='left', on='title')
-nberCartJEL.jel = nberCartJEL.jel.apply(lambda x: x.replace(', ',','))
+nberCartChars = pd.merge(nberCart, nber[['title','jel','year']], how='left', on='title')
+nberCartChars.jel = nberCartChars.jel.apply(lambda x: x.replace(', ',','))
 
-nberEdges = list(nberCartJEL.value_x + '|' + nberCartJEL.value_y + '|' + nberCartJEL.jel)
+# Need [author_x, author_y, {'jel':JEL, 'year':YEAR}]
+
+nberEdges = [[r[0],r[1],{'jel':r[2],'year':r[3]}] for r in \
+             nberCartChars.values[:,1:]]
+
+#nberEdges = list(nberCartChars.value_x + '|' + nberCartChars.value_y + '|' + nberCartChars.jel + )
 
 ################
 # Create Graph #
 ################
 
-G = nx.parse_edgelist(nberEdges, delimiter='|', data=(('jelcode',str),))
+# Generate Blank Graph
+G = nx.MultiGraph()
+
+# Add Authors
+authors = nberCartChars.value_x.unique()
+G.add_nodes_from(authors)
+
+# Add Edges
+G.add_edges_from(nberEdges)
 
 # TODO: Add Department Attribute (WIP)
+
+
+#################
+# Write to File #
+#################
+
+outpath = '../save/nber.graphml'
+nx.write_graphml(G, outpath)
+
 
 #############################
 # Degree Distribution       # 
@@ -139,10 +169,3 @@ data = np.hstack((nodeRanks,authorCodes))
 df = pd.DataFrame(data)
 df.columns = ['rank'] + [jel for jel in jelSet]
 df['author'] = authors
-
-#################
-# Write to File #
-#################
-
-outpath = '../save/nber.graphml'
-nx.write_graphml(G, outpath)
