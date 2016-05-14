@@ -79,10 +79,8 @@ nberCartChars.jel = nberCartChars.jel.apply(lambda x: x.replace(', ',','))
 
 # Need [author_x, author_y, {'jel':JEL, 'year':YEAR}]
 
-nberEdges = [[r[0],r[1],{'jel':r[2],'year':r[3]}] for r in \
-             nberCartChars.values[:,1:]]
-
-#nberEdges = list(nberCartChars.value_x + '|' + nberCartChars.value_y + '|' + nberCartChars.jel + )
+nberEdges = [[r[1],r[2],{'jel':r[3],'year':r[4],'title':r[0]}] for r in \
+             nberCartChars.values]
 
 ################
 # Create Graph #
@@ -100,14 +98,12 @@ G.add_edges_from(nberEdges)
 
 # TODO: Add Department Attribute (WIP)
 
-
 #################
 # Write to File #
 #################
 
 outpath = '../save/nber.graphml'
 nx.write_graphml(G, outpath)
-
 
 #############################
 # Degree Distribution       # 
@@ -139,7 +135,6 @@ for a in range(len(authors)):
         paperJels  = paperAttrs['jelcode'].split(',')
         jelInds = [jelLookup[jel] for jel in paperJels]
         authorCodes[a, jelInds] += 1
-
 
 #####################
 # Compute PageRank  # 
