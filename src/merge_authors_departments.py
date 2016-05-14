@@ -69,7 +69,7 @@ for currAuthor in nberAuthorErrors:
         G.remove_node(prevName)
 
     for i,target in enumerate(allPrevEdges):
-        G.add_edge(prevAuthorNames[0], target, jelcode=allPrevEdgeAttributes[i])
+        G.add_edge(prevAuthorNames[0], target, jel=allPrevEdgeAttributes[i])
 
 # Merge department affiliations onto author matches
 authDept = pd.merge(deptMatches, department, how='left', left_on='repecAuthor', right_on='authorClean')
