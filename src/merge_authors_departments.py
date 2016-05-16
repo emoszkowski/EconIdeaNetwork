@@ -26,7 +26,7 @@ n = G.nodes()
 ndf = pd.DataFrame(n, columns=['author'])
 
 ## Read departments (scraped from REPEC) in to dataframe
-department = pd.read_csv('../../../work_erica/EconIdeaNetwork/save/REPEC_Paper_Info.csv', delimiter=',')
+department = pd.read_csv('../../../work_erica/EconIdeaNetwork/save/REPEC_Paper_Info_extended.csv', delimiter='|')
 department = department.drop_duplicates()
 
 department['authorClean'] = department.Author.apply(lambda x: x.replace(',','').split(' '))
@@ -45,6 +45,8 @@ deptMatches = pd.concat(list(deptMatches))
 # Fix author errors in NBER by merging nodes with name errors (typos, etc)
 s = deptMatches.groupby('repecAuthor').size()
 nberAuthorErrors = s[s > 1].index
+
+"""
 
 for currAuthor in nberAuthorErrors:
 
@@ -71,11 +73,25 @@ for currAuthor in nberAuthorErrors:
     for i,target in enumerate(allPrevEdges):
         G.add_edge(prevAuthorNames[0], target, jel=allPrevEdgeAttributes[i])
 
+"""
+
+
 # Merge department affiliations onto author matches
 authDept = pd.merge(deptMatches, department, how='left', left_on='repecAuthor', right_on='authorClean')
 
-# Save G and authDept to files
-outpath = '../save/authors_departments.graphml'
-nx.write_graphml(G, outpath)
+G_dept = G.copy()
 
-authDept.to_csv("../save/authors_departments.csv",sep='|')
+for i in range(authDept.shape[0]):
+    try:
+        nx.set_node_attributes(G_dept, 'dept', \
+                               {authDept.author.iloc[i]: \
+                                authDept.Institution.iloc[i]})
+    except:
+        print authDept.author.iloc[i], 'not in graph'
+
+
+# Save G and authDept to files
+outpath = '../save/nber_departments_extended.graphml'
+nx.write_graphml(G_dept, outpath)
+
+authDept.to_csv("../save/authors_departments_extended.csv",sep='|')

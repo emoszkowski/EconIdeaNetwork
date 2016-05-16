@@ -70,6 +70,18 @@ nberLong.value = nberLong.value.apply(lambda x: x.replace('.',''))
 nberCart = pd.merge(nberLong, nberLong, how='outer', on='title')
 nberCart = nberCart[nberCart.value_x != nberCart.value_y]
 
+########################################################
+# add weight for each edge  = 1/nAuthors on the paper  #
+########################################################
+x = nberCart.groupby(['title','value_x']).size().reset_index()
+x[0] = (x[0].astype(float)) ** -1     # weight is 1/(nCoauthors)
+
+nberCart = pd.merge(nberCart, x, how='left', on=['title','value_x'])
+
+# eliminate duplicate edges
+nberCart = nberCart[nberCart.value_x < nberCart.value_y]
+nberCart.columns = ['title','value_x','value_y','weight']
+
 #################################################
 # Add JEL Codes and Years to Coauthorship Edges #
 #################################################
@@ -77,10 +89,22 @@ nberCart = nberCart[nberCart.value_x != nberCart.value_y]
 nberCartChars = pd.merge(nberCart, nber[['title','jel','year']], how='left', on='title')
 nberCartChars.jel = nberCartChars.jel.apply(lambda x: x.replace(', ',','))
 
-# Need [author_x, author_y, {'jel':JEL, 'year':YEAR}]
+# Need [author_x, author_y, {'jel':JEL, 'year':YEAR, 'npapers:NPAPERS'}]
 
-nberEdges = [[r[1],r[2],{'jel':r[3],'year':r[4],'title':r[0]}] for r in \
-             nberCartChars.values]
+nberEdges = [[r[1],r[2],{'jel':r[4],'year':r[5],'title':r[0],'weight':r[3]}] for r in \
+                         nberCartChars.values]
+
+###############################################################
+# Calculate # of papers each author has written               #
+###############################################################
+nPapersPerAuthor   = nberLong.groupby('value').size().reset_index()
+nPapersPerAuthor.columns = ['author','nPapers']
+
+# transform to collection of tuples in order to input to
+# networkx graph constructor. There is probably a way to do this without
+# going through a dictionary, but for now this works.
+paperDict= nPapersPerAuthor.set_index('author')['nPapers'].to_dict()
+nodeAttrs = [(x,{'nPapers':float(paperDict[x])}) for x in paperDict.keys()]
 
 ################
 # Create Graph #
@@ -90,13 +114,11 @@ nberEdges = [[r[1],r[2],{'jel':r[3],'year':r[4],'title':r[0]}] for r in \
 G = nx.MultiGraph()
 
 # Add Authors
-authors = nberCartChars.value_x.unique()
-G.add_nodes_from(authors)
+G.add_nodes_from(nodeAttrs)
 
 # Add Edges
 G.add_edges_from(nberEdges)
 
-# TODO: Add Department Attribute (WIP)
 
 #################
 # Write to File #
@@ -105,62 +127,62 @@ G.add_edges_from(nberEdges)
 outpath = '../save/nber.graphml'
 nx.write_graphml(G, outpath)
 
-#############################
-# Degree Distribution       # 
-#############################
-degree_dist = nx.degree_histogram(G)
+# #############################
+# # Degree Distribution       # 
+# #############################
+# degree_dist = nx.degree_histogram(G)
 
-#######################################
-# Calculate distribution of JEL codes #
-# for each author                     #
-#######################################
+# #######################################
+# # Calculate distribution of JEL codes #
+# # for each author                     #
+# #######################################
 
-# how many unique JEL codes are there?
-jelList = ','.join(list(nberCartJEL.jel))
-jelList = jelList.split(',')
-jelSet = set(jelList)
+# # how many unique JEL codes are there?
+# jelList = ','.join(list(nberCartJEL.jel))
+# jelList = jelList.split(',')
+# jelSet = set(jelList)
 
-# make a JEL lookup table
-jelLookup = dict()
-for i, jel in enumerate(jelSet):
-    jelLookup[jel] = i
+# # make a JEL lookup table
+# jelLookup = dict()
+# for i, jel in enumerate(jelSet):
+#     jelLookup[jel] = i
 
-# make an array of authors x JELs to keep counts
-authors = nx.nodes(G) 
-authorCodes = np.zeros((len(authors), len(jelSet)))
-for a in range(len(authors)):
-    papers = G.edges(authors[a])
-    for p in papers:
-        paperAttrs = G.get_edge_data(p[0], p[1])
-        paperJels  = paperAttrs['jelcode'].split(',')
-        jelInds = [jelLookup[jel] for jel in paperJels]
-        authorCodes[a, jelInds] += 1
+# # make an array of authors x JELs to keep counts
+# authors = nx.nodes(G) 
+# authorCodes = np.zeros((len(authors), len(jelSet)))
+# for a in range(len(authors)):
+#     papers = G.edges(authors[a])
+#     for p in papers:
+#         paperAttrs = G.get_edge_data(p[0], p[1])
+#         paperJels  = paperAttrs['jelcode'].split(',')
+#         jelInds = [jelLookup[jel] for jel in paperJels]
+#         authorCodes[a, jelInds] += 1
 
-#####################
-# Compute PageRank  # 
-#####################
+# #####################
+# # Compute PageRank  # 
+# #####################
 
-ranks = nx.pagerank(G)
+# ranks = nx.pagerank(G)
 
-# add to graph
-nx.set_node_attributes(G, 'rank', ranks)
+# # add to graph
+# nx.set_node_attributes(G, 'rank', ranks)
 
-# in case we want to look at the top authors
-sortedRanks = sorted(ranks.items(), key=lambda x: x[1])
+# # in case we want to look at the top authors
+# sortedRanks = sorted(ranks.items(), key=lambda x: x[1])
 
 
-########################
-# Feature matrix       #
-########################
+# ########################
+# # Feature matrix       #
+# ########################
 
-# Extract PageRank to a vector
-nodeRanks = np.empty(len(authors))
-for i in range(len(authors)):
-    nodeRanks[i] = ranks.get(authors[i])
-nodeRanks = np.reshape(nodeRanks, (len(nodeRanks),1))
+# # Extract PageRank to a vector
+# nodeRanks = np.empty(len(authors))
+# for i in range(len(authors)):
+#     nodeRanks[i] = ranks.get(authors[i])
+# nodeRanks = np.reshape(nodeRanks, (len(nodeRanks),1))
 
-# Make a dataFrame
-data = np.hstack((nodeRanks,authorCodes))
-df = pd.DataFrame(data)
-df.columns = ['rank'] + [jel for jel in jelSet]
-df['author'] = authors
+# # Make a dataFrame
+# data = np.hstack((nodeRanks,authorCodes))
+# df = pd.DataFrame(data)
+# df.columns = ['rank'] + [jel for jel in jelSet]
+# df['author'] = authors
